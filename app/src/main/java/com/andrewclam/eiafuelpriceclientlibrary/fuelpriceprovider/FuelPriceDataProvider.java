@@ -10,7 +10,7 @@ import io.reactivex.Single;
 /**
  * Exposes public pricing data base on a provided region or a specific location
  */
-interface FuelPriceDataProvider {
+public interface FuelPriceDataProvider {
 
   /**
    * Reactive RxJava interface to get price by the provided {@link Address}
@@ -36,7 +36,7 @@ interface FuelPriceDataProvider {
 
   interface OnCompleteCallback {
 
-    void onReceived(@NonNull Double price);
+    void onSuccess(@NonNull Double price);
 
     void onError(@NonNull Throwable throwable);
 

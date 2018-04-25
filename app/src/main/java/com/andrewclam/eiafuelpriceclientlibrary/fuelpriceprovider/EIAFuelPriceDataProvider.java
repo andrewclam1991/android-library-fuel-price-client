@@ -30,7 +30,7 @@ import io.reactivex.disposables.Disposable;
 
 /**
  * EIA specific client Api
- * see public data set
+ * see public data sets at
  * https://www.eia.gov/petroleum/gasdiesel/
  */
 interface EIAFuelPriceDataProviderApi {
@@ -52,7 +52,7 @@ interface EIAFuelPriceDataProviderApi {
  * Concrete implementation of the {@link EIAFuelPriceDataProviderApi}
  * TODO implement Retrofit to cleanup network setup and json parsing
  */
-final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderApi, FuelPriceDataProvider {
+public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderApi, FuelPriceDataProvider {
 
   // EIA API Key
   private static final String EIA_API_KEY =
@@ -90,6 +90,10 @@ final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderApi, Fue
 
   private static volatile EIAFuelPriceDataProvider INSTANCE;
 
+  /**
+   * Returns the single instance of this class, creating it if necessary.
+   * @return the {@link EIAFuelPriceDataProvider} instance
+   */
   public static EIAFuelPriceDataProvider getInstance() {
     if (INSTANCE == null) {
       synchronized (EIAFuelPriceDataProvider.class) {
@@ -99,6 +103,14 @@ final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderApi, Fue
       }
     }
     return INSTANCE;
+  }
+
+  /**
+   * Used to force {@link #getInstance()} to create a new instance
+   * next time it's called.
+   */
+  public static void destroyInstance(){
+    INSTANCE = null;
   }
 
   @Override
@@ -124,7 +136,7 @@ final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderApi, Fue
   public void getPrice(@NonNull Address address, @NonNull OnCompleteCallback callback) {
     CompositeDisposable compositeDisposable = new CompositeDisposable();
     Disposable disposable = getPrice(address).subscribe(
-        callback::onReceived,
+        callback::onSuccess,
         callback::onError
     );
     compositeDisposable.add(disposable);
@@ -155,7 +167,7 @@ final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderApi, Fue
   }
 
   /**
-   * internal strategy class that provides the concrete implementations
+   * Internal strategy class that provides the concrete implementations
    */
   private final class Strategy implements EIAFuelPriceDataProviderApi {
     // LOG TAG
