@@ -3,6 +3,7 @@ package com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider;
 import android.location.Address;
 import android.support.annotation.NonNull;
 
+import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.model.FuelPriceData;
 import com.google.common.base.Optional;
 
 import io.reactivex.Single;
@@ -19,7 +20,7 @@ public interface FuelPriceDataProvider {
    * @return an observable result that when onSuccess, returns the fuel price per volume
    */
   @NonNull
-  Single<Double> getPrice(@NonNull Address address);
+  Single<FuelPriceData> getPrice(@NonNull Address address);
 
   /**
    * Call-back style interface to get fuel price by the provided {@link Address}
@@ -27,6 +28,7 @@ public interface FuelPriceDataProvider {
    * @param address address for getting its regional price data
    */
   void getPrice(@NonNull Address address, @NonNull OnCompleteCallback callback);
+
 
   /**
    * Clears cached prices and forces next fetch to get fresh data from its
@@ -36,7 +38,7 @@ public interface FuelPriceDataProvider {
 
   interface OnCompleteCallback {
 
-    void onSuccess(@NonNull Double price);
+    void onSuccess(@NonNull FuelPriceData data);
 
     void onError(@NonNull Throwable throwable);
 

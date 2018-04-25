@@ -1,19 +1,23 @@
 package com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider;
 
 import android.Manifest;
+import android.accounts.NetworkErrorException;
 import android.location.Address;
+import android.net.Network;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.RequiresPermission;
 import android.support.annotation.VisibleForTesting;
-import android.text.TextUtils;
 import android.util.Log;
 
+import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.model.FuelPriceData;
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.w3c.dom.Entity;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -23,47 +27,32 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.NoSuchElementException;
 
 import io.reactivex.Single;
+import io.reactivex.SingleEmitter;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.observers.TestObserver;
 
 /**
- * EIA specific client Api
- * see public data sets at
- * https://www.eia.gov/petroleum/gasdiesel/
+ * Concrete implementation of the {@link EIAFuelPriceDataClientApi}
+ * TODO implement Retrofit to do getData() and data extraction steps
+ * TODO strip out json key as constants
  */
-interface EIAFuelPriceDataProviderApi {
-
-  @NonNull
-  Single<Double> getFuelPrice(@NonNull String jsonResponse);
-
-  @NonNull
-  Single<String> getData(@NonNull String requestURL);
-
-  @NonNull
-  Single<String> getRequestURL(@NonNull String seriesId);
-
-  @NonNull
-  Single<String> getDataSetSeriesId(@NonNull Address address);
-}
-
-/**
- * Concrete implementation of the {@link EIAFuelPriceDataProviderApi}
- * TODO implement Retrofit to cleanup network setup and json parsing
- */
-public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderApi, FuelPriceDataProvider {
+public final class EIAFuelPriceDataClient implements EIAFuelPriceDataClientApi,
+    FuelPriceDataProvider {
 
   // EIA API Key
   private static final String EIA_API_KEY =
-      "YOUR_API_KEY_HERE";
+      "8576274d08ef8c2e1d92e2abb1fdcba4";
 
   // Base URL for a EIA to find matching series id base on keyword (name)
-  private static final String BASE_EIA_DATA_SET_QUERY_URL =
+  private static final String BASE_EIA_QUERY_SERIES_ID_BY_NAME_URL =
       "http://api.eia.gov/search/?search_term=name&search_value=";
 
   // Base URL for to query a EIA series id
-  private static final String BASE_EIA_QUERY_BY_SERIES_ID_URL =
+  private static final String BASE_EIA_QUERY_DATA_SET_BY_SERIES_ID_URL =
       "http://api.eia.gov/series/?api_key=" +
           EIA_API_KEY +
           "&series_id=";
@@ -75,30 +64,32 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
           EIA_API_KEY +
           "&series_id=PET.EMM_EPM0_PTE_NUS_DPG.W";
 
+  @Nullable
   @VisibleForTesting
-  Double mCachedPrice;
+  FuelPriceData mCachedFuelPriceData;
 
   @VisibleForTesting
   boolean mCacheIsDirty = false;
 
   @NonNull
-  private final EIAFuelPriceDataProvider.Strategy mStrategy;
+  private final EIAFuelPriceDataClient.Strategy mStrategy;
 
-  private EIAFuelPriceDataProvider() {
+  private EIAFuelPriceDataClient() {
     mStrategy = new Strategy();
   }
 
-  private static volatile EIAFuelPriceDataProvider INSTANCE;
+  private static volatile EIAFuelPriceDataClient INSTANCE;
 
   /**
    * Returns the single instance of this class, creating it if necessary.
-   * @return the {@link EIAFuelPriceDataProvider} instance
+   *
+   * @return the {@link EIAFuelPriceDataClient} instance
    */
-  public static EIAFuelPriceDataProvider getInstance() {
+  public static EIAFuelPriceDataClient getInstance() {
     if (INSTANCE == null) {
-      synchronized (EIAFuelPriceDataProvider.class) {
+      synchronized (EIAFuelPriceDataClient.class) {
         if (INSTANCE == null) {
-          INSTANCE = new EIAFuelPriceDataProvider();
+          INSTANCE = new EIAFuelPriceDataClient();
         }
       }
     }
@@ -109,7 +100,7 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
    * Used to force {@link #getInstance()} to create a new instance
    * next time it's called.
    */
-  public static void destroyInstance(){
+  public static void destroyInstance() {
     INSTANCE = null;
   }
 
@@ -120,16 +111,18 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
 
   @NonNull
   @Override
-  public Single<Double> getPrice(@NonNull Address address) {
+  public Single<FuelPriceData> getPrice(@NonNull Address address) {
     // Return immediately if the in-memory cache is clean and has a value
-    if (!mCacheIsDirty && mCachedPrice > 0) {
-      return Single.just(mCachedPrice);
+    if (!mCacheIsDirty && mCachedFuelPriceData != null) {
+      return Single.just(mCachedFuelPriceData);
     }
 
-    return getDataSetSeriesId(address)
-        .flatMap(this::getRequestURL)
+    return createSeriesIdRequestURL(address)
         .flatMap(this::getData)
-        .flatMap(this::getFuelPrice);
+        .flatMap(this::extractDataSetSeriesId)
+        .flatMap(this::createFuelDataRequestURL)
+        .flatMap(this::getData)
+        .flatMap(this::extractFuelPriceData);
   }
 
   @Override
@@ -144,8 +137,20 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
 
   @NonNull
   @Override
-  public Single<Double> getFuelPrice(@NonNull String jsonresponse) {
-    return mStrategy.getFuelPrice(jsonresponse);
+  public Single<FuelPriceData> extractFuelPriceData(@NonNull String jsonresponse) {
+    return mStrategy.extractFuelPriceData(jsonresponse);
+  }
+
+  @NonNull
+  @Override
+  public Single<String> createFuelDataRequestURL(@NonNull String seriesId) {
+    return mStrategy.createFuelDataRequestURL(seriesId);
+  }
+
+  @NonNull
+  @Override
+  public Single<String> extractDataSetSeriesId(@NonNull String jsonResponse) {
+    return mStrategy.extractDataSetSeriesId(jsonResponse);
   }
 
   @NonNull
@@ -156,20 +161,14 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
 
   @NonNull
   @Override
-  public Single<String> getRequestURL(@NonNull String seriesId) {
-    return mStrategy.getRequestURL(seriesId);
-  }
-
-  @NonNull
-  @Override
-  public Single<String> getDataSetSeriesId(@NonNull Address address) {
-    return mStrategy.getDataSetSeriesId(address);
+  public Single<String> createSeriesIdRequestURL(@NonNull Address address) {
+    return mStrategy.createSeriesIdRequestURL(address);
   }
 
   /**
    * Internal strategy class that provides the concrete implementations
    */
-  private final class Strategy implements EIAFuelPriceDataProviderApi {
+  private final class Strategy implements EIAFuelPriceDataClientApi {
     // LOG TAG
     private final String TAG = Strategy.class.getSimpleName();
 
@@ -180,74 +179,84 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
     private Strategy() {
     }
 
-    @NonNull
-    public Single<Double> getFuelPrice(@NonNull String data) {
-      return Single.create(emitter -> {
-        if (Strings.isNullOrEmpty(data)) {
-          emitter.onError(new IllegalArgumentException("fuel data is empty"));
-        } else {
-          emitter.onSuccess(0.0);
-        }
-      });
-    }
-
     @RequiresPermission(Manifest.permission.INTERNET)
     @NonNull
-    public Single<String> getData(@NonNull String requestURL) {
+    public Single<FuelPriceData> extractFuelPriceData(@NonNull String jsonResponse) {
       return Single.create(emitter -> {
+        if (Strings.isNullOrEmpty(jsonResponse)) {
+          emitter.onError(new NoSuchElementException("unable to parse FuelPriceData from empty json"));
+          return;
+        }
 
-        // TODO USE VOLLEY OR RETROFIT HERE FOR JSON parsing
+        // Create an instance of the model to hold data
+        FuelPriceData data = new FuelPriceData();
+
+        // Try to parse the SAMPLE_JSON_RESPONSE. If there's a problem with the way the JSON
+        // is formatted, a JSONException exception object will be thrown.
+        // Catch the exception so the app doesn't crash, and print the error message to the logs.
+        try {
+          // 1) Convert SAMPLE_JSON_RESPONSE String into a JSONObject
+          JSONObject rootJsonResponse = new JSONObject(jsonResponse);
+
+          // 2) Extract "series" JSONArray from root
+          JSONArray seriesJsonArray = rootJsonResponse.getJSONArray("series");
+
+          // 3) The "series" JSON array to get the dataJsonArray,
+          // the array it will just have one object when only one series is requested, so just set at 0
+          JSONObject currentSeriesJsonObject = seriesJsonArray.getJSONObject(0);
+
+          // 4) Assign the series ID and dataSetName of the returned json, for verification
+          String seriesID = currentSeriesJsonObject.getString("series_id");
+          String dataSetName = currentSeriesJsonObject.getString("name");
+
+          // 5) Reference the data json array where all the data is
+          JSONArray dataJsonArray = currentSeriesJsonObject.getJSONArray("data");
+
+          // 6) Reference the latest fuel price, get the first element in the array
+          JSONArray fuelPriceJsonArray = dataJsonArray.getJSONArray(0);
+
+          // 7) Parse the latest fuel price,
+          // date is the element at index 0,
+          // and price is at index 1
+          long updateTimeStamp = fuelPriceJsonArray.getLong(0);
+          double gasPrice = fuelPriceJsonArray.getDouble(1);
+
+          // 8) Assign the extracted data into a gas price item
+          data.setDataSetId(seriesID);
+          data.setDataSetName(dataSetName);
+          data.setPrice(gasPrice);
+          data.setUpdateTimeStamp(updateTimeStamp);
+
+        } catch (JSONException e) {
+          // If an error is thrown when executing any of the above statements in the "try" block,
+          // catch the exception here, so the app doesn't crash. Print a log message
+          // with the message from the exception.
+          Log.e(TAG, "Problem parsing the gas retail prices JSON results", e);
+          emitter.onError(e);
+          return;
+        }
+
+        emitter.onSuccess(data);
 
       });
     }
 
     @NonNull
-    public Single<String> getRequestURL(@NonNull String seriesId) {
+    @Override
+    public Single<String> createFuelDataRequestURL(@NonNull String seriesId) {
       return Single.create(emitter -> {
         if (Strings.isNullOrEmpty(seriesId) || !seriesId.contains("PET.EMM_EPM0")) {
           emitter.onError(new IllegalArgumentException("Invalid EIA data set series id"));
         } else {
-          emitter.onSuccess(BASE_EIA_QUERY_BY_SERIES_ID_URL + seriesId);
+          emitter.onSuccess(BASE_EIA_QUERY_DATA_SET_BY_SERIES_ID_URL + seriesId);
         }
       });
     }
 
-    /**
-     * Method to get the required series id string, required by {@link #getRequestURL(String)}
-     * Implementation uses EIA search api to get the specific EIA base on the
-     * given {@code address} argument.
-     *
-     * @param address the supplied {@code address} to find the matching series id for
-     * @return the specific series id that corresponds to the {@code address}
-     */
-    @RequiresPermission(Manifest.permission.INTERNET)
     @NonNull
-    public Single<String> getDataSetSeriesId(@NonNull Address address) {
+    @Override
+    public Single<String> extractDataSetSeriesId(@NonNull String jsonResponse) {
       return Single.create(emitter -> {
-        String dataSetName = getGasolineDataSetName(address);
-
-        // Concat the root search url with the parameter dataSetName
-        String requestUrl = BASE_EIA_DATA_SET_QUERY_URL.concat(dataSetName);
-
-        // Create URL object
-        URL url;
-        try {
-          url = new URL(requestUrl);
-        }catch (MalformedURLException e){
-          emitter.onError(e);
-          return;
-        }
-
-        // Perform HTTP request to the URL and receive a JSON response back
-        String jsonResponse;
-        try {
-          jsonResponse = makeHttpRequest(url);
-        } catch (IOException e) {
-          Log.e(TAG, "Error closing input stream", e);
-          emitter.onError(e);
-          return;
-        }
-
         // If the JSON string is empty or null, then return early.
         if (Strings.isNullOrEmpty(jsonResponse)) {
           emitter.onError(new IllegalArgumentException("no data, jsonResponse can't be empty."));
@@ -294,9 +303,19 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
       });
     }
 
+    @NonNull
+    @Override
+    public Single<String> createSeriesIdRequestURL(@NonNull Address address) {
+      return Single.create(emitter -> {
+        String dataSetName = getDataSetName(address);
+        String requestUrl = BASE_EIA_QUERY_SERIES_ID_BY_NAME_URL.concat(dataSetName);
+        emitter.onSuccess(requestUrl);
+      });
+    }
+
     /**
      * Generate an exact gasoline data set name base on region, required by
-     * {@link #getDataSetSeriesId(Address)}
+     * {@link #createSeriesIdRequestURL(Address)}
      * <p>
      * see https://www.eia.gov/opendata/qb.php?category=240839&sdid=PET.EMM_EPM0_PTE_SCA_DPG.W
      * ex. California All Grades All Formulations Retail Gasoline Prices, Weekly
@@ -311,7 +330,7 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
      * @return a corresponding data set's name at EIA
      */
     @NonNull
-    private String getGasolineDataSetName(@NonNull Address address) {
+    private String getDataSetName(@NonNull Address address) {
       // Request data set name concat elements
       String mRegionName = getRegionFromAddress(address); // ex. California
       String mGrade = "All Grades";
@@ -327,17 +346,32 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
           mUpdateFreq
       };
 
-      return TextUtils.join("%20", dataSetNameFrag).replace(" ", "%20");
+      return Joiner.on("%20")
+          .skipNulls()
+          .join(dataSetNameFrag)
+          .replace(" ", "%20");
     }
 
     /**
-     * TODO implement region matcher to query persistent database instead
-     * @param address
-     * @return an encoded region that has a corresponding dataset
+     * TODO implement region matcher algorithm
+     *
+     * @return an encoded region that has a corresponding data set at source api
      */
     @NonNull
     private String getRegionFromAddress(@NonNull Address address) {
-      return null;
+      return "California";
+    }
+
+    @NonNull
+    @Override
+    public Single<String> getData(@NonNull String requestURL) {
+      return Single.create(emitter -> {
+        // Create URL object
+        URL url;
+        url = new URL(requestURL);
+        String jsonResponse = makeHttpRequest(url);
+        emitter.onSuccess(jsonResponse);
+      });
     }
 
     /**
@@ -348,10 +382,11 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
      */
     @NonNull
     @RequiresPermission(Manifest.permission.INTERNET)
-    private String makeHttpRequest(@NonNull URL url) throws IOException {
+    private String makeHttpRequest(@NonNull URL url) throws IOException, NetworkErrorException {
       String jsonResponse = "";
       HttpURLConnection urlConnection = null;
       InputStream inputStream = null;
+
       try {
         urlConnection = (HttpURLConnection) url.openConnection();
         urlConnection.setReadTimeout(10000 /* milliseconds */);
@@ -365,10 +400,9 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
           inputStream = urlConnection.getInputStream();
           jsonResponse = readFromStream(inputStream);
         } else {
-          Log.e(TAG, "Error response code: " + urlConnection.getResponseCode());
+          throw new NetworkErrorException("Error response code: "
+              + urlConnection.getResponseCode());
         }
-      } catch (IOException e) {
-        Log.e(TAG, "Problem retrieving the JSON results.", e);
       } finally {
         if (urlConnection != null) {
           urlConnection.disconnect();
@@ -388,7 +422,8 @@ public final class EIAFuelPriceDataProvider implements EIAFuelPriceDataProviderA
     private String readFromStream(@Nullable InputStream inputStream) throws IOException {
       StringBuilder output = new StringBuilder();
       if (inputStream != null) {
-        InputStreamReader inputStreamReader = new InputStreamReader(inputStream, Charset.forName("UTF-8"));
+        InputStreamReader inputStreamReader = new InputStreamReader(inputStream,
+            Charset.forName("UTF-8"));
         BufferedReader reader = new BufferedReader(inputStreamReader);
         String line = reader.readLine();
         while (line != null) {

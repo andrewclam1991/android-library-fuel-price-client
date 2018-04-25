@@ -43,8 +43,9 @@ ext {
 
     // Test libraries
     junitVersion = '4.12'
+    robolectricVersion = '3.8'
     mockitoVersion = '2.18.3'
     hamcrestVersion = '1.3'
-    runnerVersion = '1.0.1'
+    androidTestVersion = '1.0.2'
 
 }
