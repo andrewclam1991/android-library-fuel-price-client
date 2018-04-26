@@ -7,16 +7,14 @@ Information Administration (EIA) public data sets.
 * minBuildToolsVersion TBD
 * minJavaVersion 1.8
 * minAndroidSdkVersion 16
-=======
-Simple Android client library for getting current regional retail gas prices from U. S. Energy Information Administration public data sets.
 
 ### How to use ###
 
 #### 1. Get an instance of the FuelPriceDataProvider ####
 ```
-private FuelPriceDataProvider mProvider
+private EIADataProvider mProvider
 ...
-mProvider = EIAFuelPriceDataProvider.getInstance();
+mProvider = GasolinePriceDataProvider.getInstance();
 ```
 
 #### 2. The library offers two simple ways to get gas price results: ####
