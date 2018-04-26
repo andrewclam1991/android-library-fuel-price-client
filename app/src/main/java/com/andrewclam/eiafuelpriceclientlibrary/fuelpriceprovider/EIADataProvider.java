@@ -11,7 +11,16 @@ import io.reactivex.Single;
 /**
  * Exposes public pricing data base on a provided region or a specific location
  */
-public interface FuelPriceDataProvider {
+public interface EIADataProvider {
+
+  /**
+   * Note: Client must supply an apiKey before querying the EIA data set, otherwise
+   * error will occur.
+   *
+   * register with EIA to get one at https://www.eia.gov/opendata/register.php
+   * @param apiKey the EIA Open Data apiKey
+   */
+  void setApiKey(@NonNull String apiKey);
 
   /**
    * Reactive RxJava interface to get price by the provided {@link Address}
@@ -28,7 +37,6 @@ public interface FuelPriceDataProvider {
    * @param address address for getting its regional price data
    */
   void getPrice(@NonNull Address address, @NonNull OnCompleteCallback callback);
-
 
   /**
    * Clears cached prices and forces next fetch to get fresh data from its

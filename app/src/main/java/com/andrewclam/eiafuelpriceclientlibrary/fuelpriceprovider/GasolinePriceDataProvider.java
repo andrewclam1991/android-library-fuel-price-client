@@ -3,7 +3,7 @@ package com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider;
 import android.Manifest;
 import android.accounts.NetworkErrorException;
 import android.location.Address;
-import android.net.Network;
+import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.RequiresPermission;
@@ -17,52 +17,30 @@ import com.google.common.base.Strings;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.w3c.dom.Entity;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.NoSuchElementException;
 
 import io.reactivex.Single;
-import io.reactivex.SingleEmitter;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
-import io.reactivex.observers.TestObserver;
 
 /**
  * Concrete implementation of the {@link EIAFuelPriceDataClientApi}
  * TODO implement Retrofit to do getData() and data extraction steps
  * TODO strip out json key as constants
  */
-public final class EIAFuelPriceDataClient implements EIAFuelPriceDataClientApi,
-    FuelPriceDataProvider {
+public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientApi, EIADataProvider {
 
   // EIA API Key
-  private static final String EIA_API_KEY =
-      "8576274d08ef8c2e1d92e2abb1fdcba4";
-
-  // Base URL for a EIA to find matching series id base on keyword (name)
-  private static final String BASE_EIA_QUERY_SERIES_ID_BY_NAME_URL =
-      "http://api.eia.gov/search/?search_term=name&search_value=";
-
-  // Base URL for to query a EIA series id
-  private static final String BASE_EIA_QUERY_DATA_SET_BY_SERIES_ID_URL =
-      "http://api.eia.gov/series/?api_key=" +
-          EIA_API_KEY +
-          "&series_id=";
-
-  // Default base URL to fallback to when region can't be matched
-  // URL points to U.S National Average data
-  private static final String EIA_SERIES_ID_DEFAULT_URL =
-      "http://api.eia.gov/series/?api_key=" +
-          EIA_API_KEY +
-          "&series_id=PET.EMM_EPM0_PTE_NUS_DPG.W";
+  @Nullable
+  private String mAPIKey;
 
   @Nullable
   @VisibleForTesting
@@ -72,24 +50,20 @@ public final class EIAFuelPriceDataClient implements EIAFuelPriceDataClientApi,
   boolean mCacheIsDirty = false;
 
   @NonNull
-  private final EIAFuelPriceDataClient.Strategy mStrategy;
+  private final GasolinePriceDataProvider.Strategy mStrategy;
 
-  private EIAFuelPriceDataClient() {
-    mStrategy = new Strategy();
-  }
-
-  private static volatile EIAFuelPriceDataClient INSTANCE;
+  private static volatile GasolinePriceDataProvider INSTANCE;
 
   /**
    * Returns the single instance of this class, creating it if necessary.
    *
-   * @return the {@link EIAFuelPriceDataClient} instance
+   * @return the {@link GasolinePriceDataProvider} instance
    */
-  public static EIAFuelPriceDataClient getInstance() {
+  public static GasolinePriceDataProvider getInstance() {
     if (INSTANCE == null) {
-      synchronized (EIAFuelPriceDataClient.class) {
+      synchronized (GasolinePriceDataProvider.class) {
         if (INSTANCE == null) {
-          INSTANCE = new EIAFuelPriceDataClient();
+          INSTANCE = new GasolinePriceDataProvider();
         }
       }
     }
@@ -104,14 +78,28 @@ public final class EIAFuelPriceDataClient implements EIAFuelPriceDataClientApi,
     INSTANCE = null;
   }
 
+  private GasolinePriceDataProvider() {
+    mStrategy = new Strategy();
+  }
+
   @Override
   public void refresh() {
     mCacheIsDirty = true;
   }
 
+  @Override
+  public void setApiKey(@NonNull String apiKey) {
+      mAPIKey = apiKey;
+  }
+
   @NonNull
   @Override
   public Single<FuelPriceData> getPrice(@NonNull Address address) {
+    // Check API Key
+    if (Strings.isNullOrEmpty(mAPIKey)){
+      return Single.error(new IllegalArgumentException("No api key set, did you call setApiKey()?"));
+    }
+
     // Return immediately if the in-memory cache is clean and has a value
     if (!mCacheIsDirty && mCachedFuelPriceData != null) {
       return Single.just(mCachedFuelPriceData);
@@ -248,7 +236,28 @@ public final class EIAFuelPriceDataClient implements EIAFuelPriceDataClientApi,
         if (Strings.isNullOrEmpty(seriesId) || !seriesId.contains("PET.EMM_EPM0")) {
           emitter.onError(new IllegalArgumentException("Invalid EIA data set series id"));
         } else {
-          emitter.onSuccess(BASE_EIA_QUERY_DATA_SET_BY_SERIES_ID_URL + seriesId);
+          /*
+           * Get data set by series id
+           * ex.
+           * http://api.eia.gov/series/?api_key=12345&series_id=12345
+           */
+          String BASE_SCHEME = "http";
+          String BASE_AUTHORITY = "api.eia.gov";
+
+          String PATH_SERIES = "series";
+          String QUERY_PARAM_API_KEY_KEY = "api_key";
+          String QUERY_PARAM_SERIES_ID_KEY = "series_id";
+
+          Uri.Builder builder = new Uri.Builder();
+          builder.scheme(BASE_SCHEME)
+              .authority(BASE_AUTHORITY)
+              .appendPath(PATH_SERIES)
+              .appendQueryParameter(QUERY_PARAM_API_KEY_KEY,mAPIKey)
+              .appendQueryParameter(QUERY_PARAM_SERIES_ID_KEY,seriesId);
+
+          Uri fuelDataRequestUri = builder.build();
+          String requestUrl = fuelDataRequestUri.toString();
+          emitter.onSuccess(requestUrl);
         }
       });
     }
@@ -308,7 +317,29 @@ public final class EIAFuelPriceDataClient implements EIAFuelPriceDataClientApi,
     public Single<String> createSeriesIdRequestURL(@NonNull Address address) {
       return Single.create(emitter -> {
         String dataSetName = getDataSetName(address);
-        String requestUrl = BASE_EIA_QUERY_SERIES_ID_BY_NAME_URL.concat(dataSetName);
+
+        /*
+         * Search possible series id by name
+         * ex.
+         * http://api.eia.gov/search/?search_term=name&search_value=
+         */
+        String BASE_SCHEME = "http";
+        String BASE_AUTHORITY = "api.eia.gov";
+
+        String PATH_SEARCH = "search";
+        String QUERY_PARAM_SEARCH_TERM_KEY = "search_term";
+        String QUERY_PARAM_SEARCH_TERM_VALUE_NAME = "name";
+        String QUERY_PARAM_SEARCH_VALUE_KEY = "search_value";
+
+        Uri.Builder builder = new Uri.Builder();
+        builder.scheme(BASE_SCHEME)
+            .authority(BASE_AUTHORITY)
+            .appendPath(PATH_SEARCH)
+            .appendQueryParameter(QUERY_PARAM_SEARCH_TERM_KEY,QUERY_PARAM_SEARCH_TERM_VALUE_NAME)
+            .appendQueryParameter(QUERY_PARAM_SEARCH_VALUE_KEY,dataSetName);
+
+        Uri seriesIdRequestUri = builder.build();
+        String requestUrl = seriesIdRequestUri.toString();
         emitter.onSuccess(requestUrl);
       });
     }
@@ -327,7 +358,7 @@ public final class EIAFuelPriceDataClient implements EIAFuelPriceDataClientApi,
      * mUpdateFreq: Weekly, Monthly, Annually
      *
      * @param address
-     * @return a corresponding data set's name at EIA
+     * @return a corresponding data set's name in service api
      */
     @NonNull
     private String getDataSetName(@NonNull Address address) {
@@ -346,16 +377,13 @@ public final class EIAFuelPriceDataClient implements EIAFuelPriceDataClientApi,
           mUpdateFreq
       };
 
-      return Joiner.on("%20")
-          .skipNulls()
-          .join(dataSetNameFrag)
-          .replace(" ", "%20");
+      return Joiner.on(" ").skipNulls().join(dataSetNameFrag);
     }
 
     /**
      * TODO implement region matcher algorithm
-     *
-     * @return an encoded region that has a corresponding data set at source api
+     * if matcher failes to find a suitable region, fall back to U.S
+     * @return an encoded region name that has a corresponding data set in service api
      */
     @NonNull
     private String getRegionFromAddress(@NonNull Address address) {

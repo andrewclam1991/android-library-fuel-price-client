@@ -2,9 +2,10 @@ package com.andrewclam.eiafuelpriceclientlibrary;
 
 import android.location.Address;
 import android.support.annotation.NonNull;
+import android.util.Log;
 
-import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.EIAFuelPriceDataClient;
-import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.FuelPriceDataProvider;
+import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.GasolinePriceDataProvider;
+import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.EIADataProvider;
 import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.model.FuelPriceData;
 
 import org.junit.After;
@@ -25,24 +26,35 @@ import io.reactivex.observers.TestObserver;
 @RunWith(RobolectricTestRunner.class)
 public class ProviderUnitTest {
 
-  private FuelPriceDataProvider mProvider;
+  /**
+   * Set a valid api key here for testing
+   */
+  @NonNull
+  private final String VALID_API_KEY = "";
+
+  @NonNull
+  private final String INVALID_API_KEY = "123456abcdef";
+
+  private EIADataProvider mProvider;
 
   private Address mTestAddress;
 
   @Before
   public void setupProvider(){
-    mProvider = EIAFuelPriceDataClient.getInstance();
+    mProvider = GasolinePriceDataProvider.getInstance();
     mTestAddress = new Address(Locale.getDefault());
   }
 
   @After
   public void cleanupProvider(){
-    EIAFuelPriceDataClient.destroyInstance();
+    GasolinePriceDataProvider.destroyInstance();
   }
 
   @Test
   public void getPrice_usesRxJava(){
-    // Given that the provider starts off fresh
+    // Given that a valid api key is provided
+    mProvider.setApiKey(VALID_API_KEY);
+    // and that the provider starts off fresh
     mProvider.refresh();
 
     // When a testSubscriber starts a subscription
@@ -53,26 +65,6 @@ public class ProviderUnitTest {
     // and that it has not received any errors.
     testSubscriber.assertValueCount(1);
     testSubscriber.assertNoErrors();
-  }
-
-  @Test
-  public void getPrice_usesCallback(){
-    // Given that the provider starts off fresh
-    mProvider.refresh();
-
-    // When a getPrice is called with a callback
-    mProvider.getPrice(mTestAddress, new FuelPriceDataProvider.OnCompleteCallback() {
-      @Override
-      public void onSuccess(@NonNull FuelPriceData data) {
-
-      }
-
-      @Override
-      public void onError(@NonNull Throwable throwable) {
-
-      }
-    });
-
   }
 
 }
