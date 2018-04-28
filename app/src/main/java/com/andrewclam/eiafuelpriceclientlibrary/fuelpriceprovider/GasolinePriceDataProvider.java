@@ -381,7 +381,7 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
 
     /**
      * TODO implement region matcher algorithm
-     * if matcher failes to find a suitable region, fall back to U.S
+     * if matcher fails to find a suitable region, fall back to U.S
      * @return an encoded region name that has a corresponding data set in service api
      */
     @NonNull
