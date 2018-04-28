@@ -160,12 +160,26 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
     // LOG TAG
     private final String TAG = Strategy.class.getSimpleName();
 
+    // Scheme and Authority
+    private static final String SCHEME = "http";
+    private static final String AUTHORITY = "api.eia.gov";
+    private final Uri BASE_URI = new Uri.Builder()
+        .scheme(SCHEME)
+        .authority(AUTHORITY).build();
+
+    // Paths
+    private static final String PATH_SERIES = "series";
+    private static final String PATH_SEARCH = "search";
+
+    // Query Parameters
+    private static final String QUERY_PARAM_API_KEY_KEY = "api_key";
+    private static final String QUERY_PARAM_SERIES_ID_KEY = "series_id";
+
     /**
      * Private constructor to prevent external instantiation
      * other than the direct enclosing class
      */
-    private Strategy() {
-    }
+    private Strategy() {}
 
     @RequiresPermission(Manifest.permission.INTERNET)
     @NonNull
@@ -241,17 +255,8 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
            * ex.
            * http://api.eia.gov/series/?api_key=12345&series_id=12345
            */
-          String BASE_SCHEME = "http";
-          String BASE_AUTHORITY = "api.eia.gov";
-
-          String PATH_SERIES = "series";
-          String QUERY_PARAM_API_KEY_KEY = "api_key";
-          String QUERY_PARAM_SERIES_ID_KEY = "series_id";
-
-          Uri.Builder builder = new Uri.Builder();
-          builder.scheme(BASE_SCHEME)
-              .authority(BASE_AUTHORITY)
-              .appendPath(PATH_SERIES)
+          Uri.Builder builder = BASE_URI.buildUpon();
+          builder.appendPath(PATH_SERIES)
               .appendQueryParameter(QUERY_PARAM_API_KEY_KEY,mAPIKey)
               .appendQueryParameter(QUERY_PARAM_SERIES_ID_KEY,seriesId);
 
@@ -323,18 +328,12 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
          * ex.
          * http://api.eia.gov/search/?search_term=name&search_value=
          */
-        String BASE_SCHEME = "http";
-        String BASE_AUTHORITY = "api.eia.gov";
-
-        String PATH_SEARCH = "search";
         String QUERY_PARAM_SEARCH_TERM_KEY = "search_term";
         String QUERY_PARAM_SEARCH_TERM_VALUE_NAME = "name";
         String QUERY_PARAM_SEARCH_VALUE_KEY = "search_value";
 
-        Uri.Builder builder = new Uri.Builder();
-        builder.scheme(BASE_SCHEME)
-            .authority(BASE_AUTHORITY)
-            .appendPath(PATH_SEARCH)
+        Uri.Builder builder = BASE_URI.buildUpon();
+        builder.appendPath(PATH_SEARCH)
             .appendQueryParameter(QUERY_PARAM_SEARCH_TERM_KEY,QUERY_PARAM_SEARCH_TERM_VALUE_NAME)
             .appendQueryParameter(QUERY_PARAM_SEARCH_VALUE_KEY,dataSetName);
 
