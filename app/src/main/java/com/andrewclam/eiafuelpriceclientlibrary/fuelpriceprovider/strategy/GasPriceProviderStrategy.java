@@ -1,7 +1,10 @@
-package com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider;
+package com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy;
 
+import android.Manifest;
 import android.location.Address;
+import android.net.Uri;
 import android.support.annotation.NonNull;
+import android.support.annotation.RequiresPermission;
 
 import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.model.FuelPriceData;
 
@@ -14,7 +17,7 @@ import io.reactivex.Single;
  * see public data sets at
  * https://www.eia.gov/petroleum/gasdiesel/
  */
-interface EIAFuelPriceDataClientApi {
+public interface GasPriceProviderStrategy {
 
   /**
    * Extracts data from the provided {@code jsonResponse} into a {@link FuelPriceData}
@@ -56,6 +59,7 @@ interface EIAFuelPriceDataClientApi {
    * emits onError with the following possible exceptions:
    * TBD
    */
+  @RequiresPermission(Manifest.permission.INTERNET)
   @NonNull
   Single<String> getData(@NonNull String requestURL);
 
@@ -70,3 +74,4 @@ interface EIAFuelPriceDataClientApi {
   @NonNull
   Single<String> createSeriesIdRequestURL(@NonNull Address address);
 }
+

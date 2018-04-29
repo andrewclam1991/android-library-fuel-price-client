@@ -1,11 +1,8 @@
-package com.andrewclam.eiafuelpriceclientlibrary;
+package com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider;
 
 import android.location.Address;
 import android.support.annotation.NonNull;
-import android.util.Log;
 
-import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.GasolinePriceDataProvider;
-import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.EIADataProvider;
 import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.model.FuelPriceData;
 
 import org.junit.After;
@@ -41,13 +38,13 @@ public class ProviderUnitTest {
 
   @Before
   public void setupProvider(){
-    mProvider = GasolinePriceDataProvider.getInstance();
+    mProvider = GasPriceProvider.getInstance();
     mTestAddress = new Address(Locale.getDefault());
   }
 
   @After
   public void cleanupProvider(){
-    GasolinePriceDataProvider.destroyInstance();
+    GasPriceProvider.destroyInstance();
   }
 
   @Test

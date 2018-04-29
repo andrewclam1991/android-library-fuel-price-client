@@ -11,6 +11,7 @@ import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 
 import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.model.FuelPriceData;
+import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.GasPriceProviderStrategy;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
@@ -31,12 +32,18 @@ import io.reactivex.Single;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.GasPriceProvider.Constants.BASE_URI;
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.GasPriceProvider.Constants.PATH_SEARCH;
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.GasPriceProvider.Constants.PATH_SERIES;
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.GasPriceProvider.Constants.QUERY_PARAM_API_KEY_KEY;
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.GasPriceProvider.Constants.QUERY_PARAM_SERIES_ID_KEY;
+
 /**
- * Concrete implementation of the {@link EIAFuelPriceDataClientApi}
+ * Concrete implementation of the {@link GasPriceProviderStrategy}
  * TODO implement Retrofit to do getData() and data extraction steps
  * TODO strip out json key as constants
  */
-public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientApi, EIADataProvider {
+public final class GasPriceProvider implements GasPriceProviderStrategy, EIADataProvider {
 
   // EIA API Key
   @Nullable
@@ -50,20 +57,20 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
   boolean mCacheIsDirty = false;
 
   @NonNull
-  private final GasolinePriceDataProvider.Strategy mStrategy;
+  private final GasPriceProviderStrategy mStrategy;
 
-  private static volatile GasolinePriceDataProvider INSTANCE;
+  private static volatile GasPriceProvider INSTANCE;
 
   /**
    * Returns the single instance of this class, creating it if necessary.
    *
-   * @return the {@link GasolinePriceDataProvider} instance
+   * @return the {@link GasPriceProvider} instance
    */
-  public static GasolinePriceDataProvider getInstance() {
+  public static GasPriceProvider getInstance() {
     if (INSTANCE == null) {
-      synchronized (GasolinePriceDataProvider.class) {
+      synchronized (GasPriceProvider.class) {
         if (INSTANCE == null) {
-          INSTANCE = new GasolinePriceDataProvider();
+          INSTANCE = new GasPriceProvider();
         }
       }
     }
@@ -78,8 +85,8 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
     INSTANCE = null;
   }
 
-  private GasolinePriceDataProvider() {
-    mStrategy = new Strategy();
+  private GasPriceProvider() {
+    mStrategy = new DefaultStrategy();
   }
 
   @Override
@@ -89,14 +96,14 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
 
   @Override
   public void setApiKey(@NonNull String apiKey) {
-      mAPIKey = apiKey;
+    mAPIKey = apiKey;
   }
 
   @NonNull
   @Override
   public Single<FuelPriceData> getPrice(@NonNull Address address) {
     // Check API Key
-    if (Strings.isNullOrEmpty(mAPIKey)){
+    if (Strings.isNullOrEmpty(mAPIKey)) {
       return Single.error(new IllegalArgumentException("No api key set, did you call setApiKey()?"));
     }
 
@@ -154,32 +161,39 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
   }
 
   /**
-   * Internal strategy class that provides the concrete implementations
+   * Class that define api constants
    */
-  private final class Strategy implements EIAFuelPriceDataClientApi {
-    // LOG TAG
-    private final String TAG = Strategy.class.getSimpleName();
-
+  final static class Constants {
     // Scheme and Authority
-    private static final String SCHEME = "http";
-    private static final String AUTHORITY = "api.eia.gov";
-    private final Uri BASE_URI = new Uri.Builder()
+    static final String SCHEME = "http";
+    static final String AUTHORITY = "api.eia.gov";
+    static final Uri BASE_URI = new Uri.Builder()
         .scheme(SCHEME)
         .authority(AUTHORITY).build();
 
     // Paths
-    private static final String PATH_SERIES = "series";
-    private static final String PATH_SEARCH = "search";
+    static final String PATH_SERIES = "series";
+    public static final String PATH_SEARCH = "search";
 
     // Query Parameters
-    private static final String QUERY_PARAM_API_KEY_KEY = "api_key";
-    private static final String QUERY_PARAM_SERIES_ID_KEY = "series_id";
+    static final String QUERY_PARAM_API_KEY_KEY = "api_key";
+    static final String QUERY_PARAM_SERIES_ID_KEY = "series_id";
+  }
 
-    /**
+  /**
+   * Internal strategy class that provides the concrete implementations
+   * of a {@link GasPriceProviderStrategy}
+   */
+  private final class DefaultStrategy implements GasPriceProviderStrategy {
+    // LOG TAG
+    private final String TAG = DefaultStrategy.class.getSimpleName();
+
+    /*
      * Private constructor to prevent external instantiation
      * other than the direct enclosing class
      */
-    private Strategy() {}
+    private DefaultStrategy() {
+    }
 
     @RequiresPermission(Manifest.permission.INTERNET)
     @NonNull
@@ -257,8 +271,8 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
            */
           Uri.Builder builder = BASE_URI.buildUpon();
           builder.appendPath(PATH_SERIES)
-              .appendQueryParameter(QUERY_PARAM_API_KEY_KEY,mAPIKey)
-              .appendQueryParameter(QUERY_PARAM_SERIES_ID_KEY,seriesId);
+              .appendQueryParameter(QUERY_PARAM_API_KEY_KEY, mAPIKey)
+              .appendQueryParameter(QUERY_PARAM_SERIES_ID_KEY, seriesId);
 
           Uri fuelDataRequestUri = builder.build();
           String requestUrl = fuelDataRequestUri.toString();
@@ -322,7 +336,6 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
     public Single<String> createSeriesIdRequestURL(@NonNull Address address) {
       return Single.create(emitter -> {
         String dataSetName = getDataSetName(address);
-
         /*
          * Search possible series id by name
          * ex.
@@ -334,12 +347,24 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
 
         Uri.Builder builder = BASE_URI.buildUpon();
         builder.appendPath(PATH_SEARCH)
-            .appendQueryParameter(QUERY_PARAM_SEARCH_TERM_KEY,QUERY_PARAM_SEARCH_TERM_VALUE_NAME)
-            .appendQueryParameter(QUERY_PARAM_SEARCH_VALUE_KEY,dataSetName);
+            .appendQueryParameter(QUERY_PARAM_SEARCH_TERM_KEY, QUERY_PARAM_SEARCH_TERM_VALUE_NAME)
+            .appendQueryParameter(QUERY_PARAM_SEARCH_VALUE_KEY, dataSetName);
 
         Uri seriesIdRequestUri = builder.build();
         String requestUrl = seriesIdRequestUri.toString();
         emitter.onSuccess(requestUrl);
+      });
+    }
+
+    @NonNull
+    @Override
+    public Single<String> getData(@NonNull String requestURL) {
+      return Single.create(emitter -> {
+        // Create URL object
+        URL url;
+        url = new URL(requestURL);
+        String jsonResponse = makeHttpRequest(url);
+        emitter.onSuccess(jsonResponse);
       });
     }
 
@@ -382,23 +407,12 @@ public final class GasolinePriceDataProvider implements EIAFuelPriceDataClientAp
     /**
      * TODO implement region matcher algorithm
      * if matcher fails to find a suitable region, fall back to U.S
+     *
      * @return an encoded region name that has a corresponding data set in service api
      */
     @NonNull
     private String getRegionFromAddress(@NonNull Address address) {
       return "California";
-    }
-
-    @NonNull
-    @Override
-    public Single<String> getData(@NonNull String requestURL) {
-      return Single.create(emitter -> {
-        // Create URL object
-        URL url;
-        url = new URL(requestURL);
-        String jsonResponse = makeHttpRequest(url);
-        emitter.onSuccess(jsonResponse);
-      });
     }
 
     /**
