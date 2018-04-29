@@ -13,7 +13,7 @@ import org.json.JSONException;
 import io.reactivex.Single;
 
 /**
- * EIA specific client Api
+ * EIA specific client Api strategy interface
  * see public data sets at
  * https://www.eia.gov/petroleum/gasdiesel/
  */
@@ -33,6 +33,12 @@ public interface GasPriceProviderStrategy {
   @NonNull
   Single<FuelPriceData> extractFuelPriceData(@NonNull String jsonResponse);
 
+  /**
+   * Generates a well-formed url for requesting fuel data with the
+   * provided {@code seriesId}
+   * @param seriesId the unique id of a particular dataset in eia
+   * @return a well-formed url for requesting the fuel data using the service api.
+   */
   @NonNull
   Single<String> createFuelDataRequestURL(@NonNull String seriesId);
 
