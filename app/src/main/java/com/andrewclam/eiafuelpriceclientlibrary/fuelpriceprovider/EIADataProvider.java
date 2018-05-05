@@ -4,7 +4,6 @@ import android.location.Address;
 import android.support.annotation.NonNull;
 
 import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.model.FuelPriceData;
-import com.google.common.base.Optional;
 
 import io.reactivex.Single;
 
@@ -15,7 +14,7 @@ public interface EIADataProvider {
 
   /**
    * Note: Client must supply an apiKey before querying the EIA data set, otherwise
-   * error will occur.
+   * an error will occur.
    *
    * register with EIA to get one at https://www.eia.gov/opendata/register.php
    * @param apiKey the EIA Open Data apiKey

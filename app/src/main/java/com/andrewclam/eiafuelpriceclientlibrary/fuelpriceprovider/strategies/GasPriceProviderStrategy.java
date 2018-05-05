@@ -1,4 +1,4 @@
-package com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy;
+package com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategies;
 
 import android.Manifest;
 import android.location.Address;
@@ -18,6 +18,26 @@ import io.reactivex.Single;
  * https://www.eia.gov/petroleum/gasdiesel/
  */
 public interface GasPriceProviderStrategy {
+
+  /**
+   * Class that define api constants
+   */
+  final class Constants {
+    // Scheme and Authority
+    static final String SCHEME = "http";
+    static final String AUTHORITY = "api.eia.gov";
+    static final Uri BASE_URI = new Uri.Builder()
+        .scheme(SCHEME)
+        .authority(AUTHORITY).build();
+
+    // Paths
+    static final String PATH_SERIES = "series";
+    public static final String PATH_SEARCH = "search";
+
+    // Query Parameters
+    static final String QUERY_PARAM_API_KEY_KEY = "api_key";
+    static final String QUERY_PARAM_SERIES_ID_KEY = "series_id";
+  }
 
   /**
    * Extracts data from the provided {@code jsonResponse} into a {@link FuelPriceData}
