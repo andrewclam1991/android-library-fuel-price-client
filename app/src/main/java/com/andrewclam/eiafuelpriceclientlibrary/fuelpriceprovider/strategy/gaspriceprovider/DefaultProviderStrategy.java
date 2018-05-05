@@ -1,4 +1,4 @@
-package com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategies;
+package com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.gaspriceprovider;
 
 import android.Manifest;
 import android.accounts.NetworkErrorException;
@@ -10,6 +10,8 @@ import android.support.annotation.RequiresPermission;
 import android.util.Log;
 
 import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.model.FuelPriceData;
+import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.regionmatcher.DefaultMatcherStrategy;
+import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.regionmatcher.MatcherStrategy;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
@@ -28,20 +30,20 @@ import java.util.NoSuchElementException;
 
 import io.reactivex.Single;
 
-import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategies.GasPriceProviderStrategy.Constants.BASE_URI;
-import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategies.GasPriceProviderStrategy.Constants.PATH_SEARCH;
-import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategies.GasPriceProviderStrategy.Constants.PATH_SERIES;
-import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategies.GasPriceProviderStrategy.Constants.QUERY_PARAM_API_KEY_KEY;
-import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategies.GasPriceProviderStrategy.Constants.QUERY_PARAM_SERIES_ID_KEY;
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.gaspriceprovider.ProviderStrategy.Constants.BASE_URI;
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.gaspriceprovider.ProviderStrategy.Constants.PATH_SEARCH;
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.gaspriceprovider.ProviderStrategy.Constants.PATH_SERIES;
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.gaspriceprovider.ProviderStrategy.Constants.QUERY_PARAM_API_KEY_KEY;
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.gaspriceprovider.ProviderStrategy.Constants.QUERY_PARAM_SERIES_ID_KEY;
 
 
 /**
  * Internal strategy class that provides the concrete implementations
- * of a {@link GasPriceProviderStrategy}
+ * of a {@link ProviderStrategy}
  */
-public final class DefaultStrategy implements GasPriceProviderStrategy {
+public final class DefaultProviderStrategy implements ProviderStrategy {
   // LOG TAG
-  private final String TAG = DefaultStrategy.class.getSimpleName();
+  private final String TAG = DefaultProviderStrategy.class.getSimpleName();
 
   /*
    * Private constructor to prevent external instantiation
@@ -50,7 +52,10 @@ public final class DefaultStrategy implements GasPriceProviderStrategy {
   @NonNull
   private final String mApiKey;
 
-  public DefaultStrategy(@NonNull String apiKey) {
+  @NonNull
+  private final MatcherStrategy mMatcherStrategy = new DefaultMatcherStrategy();
+
+  public DefaultProviderStrategy(@NonNull String apiKey) {
     mApiKey = apiKey;
   }
 
@@ -246,7 +251,7 @@ public final class DefaultStrategy implements GasPriceProviderStrategy {
   @NonNull
   private String getDataSetName(@NonNull Address address) {
     // Request data set name concat elements
-    String mRegionName = getRegionFromAddress(address); // ex. California
+    String mRegionName = mMatcherStrategy.matchRegion(address); // ex. California
     String mGrade = "All Grades";
     String mFormulation = "All Formulations";
     String mMarketType = "Retail Gasoline Prices";
@@ -261,17 +266,6 @@ public final class DefaultStrategy implements GasPriceProviderStrategy {
     };
 
     return Joiner.on(" ").skipNulls().join(dataSetNameFrag);
-  }
-
-  /**
-   * TODO implement region matcher algorithm
-   * if matcher fails to find a suitable region, fall back to U.S
-   *
-   * @return an encoded region name that has a corresponding data set in service api
-   */
-  @NonNull
-  private String getRegionFromAddress(@NonNull Address address) {
-    return "California";
   }
 
   /**

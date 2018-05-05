@@ -6,9 +6,9 @@ import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 
 import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.model.FuelPriceData;
-import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategies.DefaultStrategy;
-import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategies.GasPriceProviderStrategy;
-import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategies.NullStrategy;
+import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.gaspriceprovider.DefaultProviderStrategy;
+import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.gaspriceprovider.ProviderStrategy;
+import com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.gaspriceprovider.NullProviderStrategy;
 import com.google.common.base.Strings;
 
 import io.reactivex.Single;
@@ -16,11 +16,11 @@ import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 
 /**
- * Concrete implementation of the {@link GasPriceProviderStrategy}
+ * Concrete implementation of the {@link ProviderStrategy}
  * TODO implement Retrofit to do getData() and data extraction steps
  * TODO strip out json key as constants
  */
-public final class GasPriceProvider implements GasPriceProviderStrategy, EIADataProvider {
+public final class GasPriceProvider implements ProviderStrategy, EIADataProvider {
 
   // EIA API Key
   @NonNull
@@ -34,7 +34,7 @@ public final class GasPriceProvider implements GasPriceProviderStrategy, EIAData
   boolean mCacheIsDirty = false;
 
   @NonNull
-  private GasPriceProviderStrategy mStrategy;
+  private ProviderStrategy mProviderStrategy;
 
   private static volatile GasPriceProvider INSTANCE;
 
@@ -63,7 +63,7 @@ public final class GasPriceProvider implements GasPriceProviderStrategy, EIAData
   }
 
   private GasPriceProvider() {
-    mStrategy = new NullStrategy();
+    mProviderStrategy = new NullProviderStrategy();
     mAPIKey = "";
   }
 
@@ -75,14 +75,14 @@ public final class GasPriceProvider implements GasPriceProviderStrategy, EIAData
   @Override
   public void setApiKey(@NonNull String apiKey) {
     mAPIKey = apiKey;
-    mStrategy = new DefaultStrategy(apiKey);
+    mProviderStrategy = new DefaultProviderStrategy(apiKey);
   }
 
   @NonNull
   @Override
   public Single<FuelPriceData> getPrice(@NonNull Address address) {
     // Check API Key
-    if (Strings.isNullOrEmpty(mAPIKey) || mStrategy instanceof NullStrategy) {
+    if (Strings.isNullOrEmpty(mAPIKey) || mProviderStrategy instanceof NullProviderStrategy) {
       return Single.error(new IllegalArgumentException("No api key set, did you call setApiKey()?"));
     }
 
@@ -112,31 +112,31 @@ public final class GasPriceProvider implements GasPriceProviderStrategy, EIAData
   @NonNull
   @Override
   public Single<FuelPriceData> extractFuelPriceData(@NonNull String jsonresponse) {
-    return mStrategy.extractFuelPriceData(jsonresponse);
+    return mProviderStrategy.extractFuelPriceData(jsonresponse);
   }
 
   @NonNull
   @Override
   public Single<String> createFuelDataRequestURL(@NonNull String seriesId) {
-    return mStrategy.createFuelDataRequestURL(seriesId);
+    return mProviderStrategy.createFuelDataRequestURL(seriesId);
   }
 
   @NonNull
   @Override
   public Single<String> extractDataSetSeriesId(@NonNull String jsonResponse) {
-    return mStrategy.extractDataSetSeriesId(jsonResponse);
+    return mProviderStrategy.extractDataSetSeriesId(jsonResponse);
   }
 
   @NonNull
   @Override
   public Single<String> getData(@NonNull String requestURL) {
-    return mStrategy.getData(requestURL);
+    return mProviderStrategy.getData(requestURL);
   }
 
   @NonNull
   @Override
   public Single<String> createSeriesIdRequestURL(@NonNull Address address) {
-    return mStrategy.createSeriesIdRequestURL(address);
+    return mProviderStrategy.createSeriesIdRequestURL(address);
   }
 }
 
