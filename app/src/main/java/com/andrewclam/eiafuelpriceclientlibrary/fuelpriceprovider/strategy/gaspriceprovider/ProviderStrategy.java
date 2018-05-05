@@ -30,6 +30,8 @@ public interface ProviderStrategy {
         .scheme(SCHEME)
         .authority(AUTHORITY).build();
 
+    static final String BASE_URI_STR = BASE_URI.toString().concat("/");
+
     // Paths
     static final String PATH_SERIES = "series";
     static final String PATH_SEARCH = "search";

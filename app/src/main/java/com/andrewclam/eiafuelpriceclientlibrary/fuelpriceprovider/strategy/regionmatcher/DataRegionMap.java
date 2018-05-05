@@ -4,14 +4,22 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * TODO put the constants in database for retrieval
+ * Mapping of constants as defined in the EIA Api
+ * TODO perf isn't really an issue, maybe more robust to use SQL query instead of in-memory maps.
  */
-public final class RegionMap {
+public final class DataRegionMap {
 
+  /**
+   * Default region name prefix, use this when there is no matches
+   */
   static final String DEFAULT = "U.S ";
+
   /**
    * List of Cities that have their own data set
-   * each constant stores the EXACT data set region prefix, DON'T MODIFY
+   * each constant stores the EXACT data set region prefix in api,
+   * DON'T MODIFY VALUES unless api changes
+   * TODO Handle edge case where there are cities with the mapped name but it is not in the expected state
+   * ex. Miami, OH where the expects Miami to be in FL
    */
   public static class Cities {
     private static final String BOSTON = "Boston";
@@ -44,7 +52,8 @@ public final class RegionMap {
 
   /**
    * List of states that have their own data set
-   * Note: each constant stores the EXACT data set region prefix, DON'T MODIFY
+   * Note: each constant stores the EXACT data set region prefix in api,
+   * DON'T MODIFY VALUES unless api changes
    */
   public static class States {
     private static final String CA = "California";
@@ -75,7 +84,8 @@ public final class RegionMap {
 
   /**
    * List of PADD Regions that have their own data set
-   * Note: each constant stores the EXACT data set region prefix, DON'T MODIFY
+   * Note: each constant stores the EXACT data set region prefix in api,
+   * DON'T MODIFY VALUES unless api changes
    */
   public static class PADD {
     private static final String PADD1 = "East Coast";

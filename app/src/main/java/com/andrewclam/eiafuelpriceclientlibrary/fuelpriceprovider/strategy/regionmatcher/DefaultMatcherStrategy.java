@@ -6,7 +6,7 @@ import android.support.annotation.Nullable;
 
 import com.google.common.base.Strings;
 
-import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.regionmatcher.StateMap.FullMapToAbbr;
+import static com.andrewclam.eiafuelpriceclientlibrary.fuelpriceprovider.strategy.regionmatcher.UnitedStates.Map;
 
 
 public class DefaultMatcherStrategy implements MatcherStrategy {
@@ -51,9 +51,9 @@ public class DefaultMatcherStrategy implements MatcherStrategy {
       // MATCH LOCALITY (CITIES)
       // Look up for specific cities (locality), if a match is found, look no further!
       // return the city's name as the region name
-      if (RegionMap.Cities.Map.containsKey(locality)){
+      if (DataRegionMap.Cities.Map.containsKey(locality)){
         // This particular city region has its own data set, use the matched.
-        return RegionMap.Cities.Map.get(locality);
+        return DataRegionMap.Cities.Map.get(locality);
       }
     }
 
@@ -66,31 +66,31 @@ public class DefaultMatcherStrategy implements MatcherStrategy {
       adminArea = adminArea.replace(" ","").toLowerCase().trim();
 
       // check if the adminArea is an abbreviation
-      if (!adminArea.matches("^[a-z][a-z]|^[A-Z][A-Z]")) {
+      if (!adminArea.matches("[a-zA-Z]{0,2}")) {
         // adminArea is not abbreviation, check if it matches full state names
-        if (StateMap.FullMapToAbbr.containsKey(adminArea)) {
+        if (UnitedStates.Map.containsKey(adminArea)) {
           // adminArea get the corresponding the abbreviation
-          adminArea = FullMapToAbbr.get(adminArea);
+          adminArea = Map.get(adminArea);
         }
       }
     }else{
-      // can't find a match in the StateMap
-      return RegionMap.DEFAULT;
+      // can't find a match in the UnitedStates
+      return DataRegionMap.DEFAULT;
     }
 
     // MATCH ADMIN AREA (STATES)
     // Check if the state has its own data set
-    if (RegionMap.States.Map.containsKey(adminArea)){
+    if (DataRegionMap.States.Map.containsKey(adminArea)){
       // adminArea refers to a state that has its own data set
-      return RegionMap.States.Map.get(adminArea);
+      return DataRegionMap.States.Map.get(adminArea);
     }else{
       // State doesn't have its own data set, match state with a PADD region
-      if (RegionMap.PADD.Map.containsKey(adminArea)){
+      if (DataRegionMap.PADD.Map.containsKey(adminArea)){
         // adminArea matched with a PADD region.
-        return RegionMap.PADD.Map.get(adminArea);
+        return DataRegionMap.PADD.Map.get(adminArea);
       }else{
         // adminArea doesn't match any mapped PADD regions
-        return RegionMap.DEFAULT;
+        return DataRegionMap.DEFAULT;
       }
     }
   }
