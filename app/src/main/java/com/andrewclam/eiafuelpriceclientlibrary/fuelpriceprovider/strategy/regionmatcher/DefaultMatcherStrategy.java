@@ -39,14 +39,14 @@ public class DefaultMatcherStrategy implements MatcherStrategy {
   @Override
   public String matchRegion(@NonNull Address address) {
 
-    // Address data that is used to be match with a region name
+    // 1) CHECK LOCALITY (CITIES)
     @Nullable
     String locality = address.getLocality();
 
     // Check if locality is set
     if (!Strings.isNullOrEmpty(locality)){
       // cleanup the locality string
-      locality = locality.replace(" ","").toLowerCase().trim();
+      locality = locality.replace(" ","").toLowerCase();
 
       // MATCH LOCALITY (CITIES)
       // Look up for specific cities (locality), if a match is found, look no further!
@@ -57,16 +57,16 @@ public class DefaultMatcherStrategy implements MatcherStrategy {
       }
     }
 
+    // 2.1) CHECK ADMIN AREA (STATES)
     @Nullable
     String adminArea = address.getAdminArea();
 
-    // CHECK ADMIN AREA (STATES)
     if (!Strings.isNullOrEmpty(adminArea)) {
-      // cleanup the adminArea string
-      adminArea = adminArea.replace(" ","").toLowerCase().trim();
+      // lower case the adminArea and replace all spaces
+      adminArea = adminArea.replace(" ","").toLowerCase();
 
-      // check if the adminArea is an abbreviation
-      if (!adminArea.matches("[a-zA-Z]{0,2}")) {
+      // check if the adminArea is an abbreviation, ex "ca"
+      if (!adminArea.matches("[a-z]{0,2}")) {
         // adminArea is not abbreviation, check if it matches full state names
         if (UnitedStates.Map.containsKey(adminArea)) {
           // adminArea get the corresponding the abbreviation
@@ -78,7 +78,7 @@ public class DefaultMatcherStrategy implements MatcherStrategy {
       return DataRegionMap.DEFAULT;
     }
 
-    // MATCH ADMIN AREA (STATES)
+    // 2.2) MATCH ADMIN AREA (STATES)
     // Check if the state has its own data set
     if (DataRegionMap.States.Map.containsKey(adminArea)){
       // adminArea refers to a state that has its own data set

@@ -34,19 +34,20 @@ public final class DataRegionMap {
     private static final String SEATTLE = "Seattle";
 
     // White list approach, if set contains the value, use the value as is
-    public static final Map<String,String> Map;
-    static{
+    public static final Map<String, String> Map;
+
+    static {
       Map = new HashMap<>();
-      Map.put("boston",BOSTON);
-      Map.put("chicago",CHICAGO);
-      Map.put("cleveland",CLEVELAND);
-      Map.put("denver",DENVER);
-      Map.put("houston",HOUSTON);
-      Map.put("losangeles",LOS_ANGELES);
-      Map.put("miami",MIAMI);
-      Map.put("newyorkcity",NEW_YORK_CITY);
-      Map.put("sanfrancisco",SAN_FRANCISCO);
-      Map.put("seattle",SEATTLE);
+      Map.put("boston", BOSTON);
+      Map.put("chicago", CHICAGO);
+      Map.put("cleveland", CLEVELAND);
+      Map.put("denver", DENVER);
+      Map.put("houston", HOUSTON);
+      Map.put("losangeles", LOS_ANGELES);
+      Map.put("miami", MIAMI);
+      Map.put("newyorkcity", NEW_YORK_CITY);
+      Map.put("sanfrancisco", SAN_FRANCISCO);
+      Map.put("seattle", SEATTLE);
     }
   }
 
@@ -67,18 +68,19 @@ public final class DataRegionMap {
     private static final String WA = "Washington";
 
     // White list approach, if set contains the value, use the value as is
-    public static final Map<String,String> Map;
+    public static final Map<String, String> Map;
+
     static {
       Map = new HashMap<>();
-      Map.put("ca",CA);
-      Map.put("co",CO);
-      Map.put("fl",FL);
-      Map.put("ma",MA);
-      Map.put("mi",MI);
-      Map.put("ny",NY);
-      Map.put("oh",OH);
-      Map.put("tx",TX);
-      Map.put("wa",WA);
+      Map.put("ca", CA);
+      Map.put("co", CO);
+      Map.put("fl", FL);
+      Map.put("ma", MA);
+      Map.put("mi", MI);
+      Map.put("ny", NY);
+      Map.put("oh", OH);
+      Map.put("tx", TX);
+      Map.put("wa", WA);
     }
   }
 
@@ -97,8 +99,8 @@ public final class DataRegionMap {
     private static final String PADD4 = "Rocky Mountain";
     private static final String PADD5 = "West Coast (PADD 5) Except California";
 
-
     public static final Map<String, String> Map;
+
     static {
       Map = new HashMap<>();
 
